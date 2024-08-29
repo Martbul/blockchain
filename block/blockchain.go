@@ -1,5 +1,3 @@
-//! rename the (bc *Blockchain) Createblock to "AddBlock  "
-
 package block
 
 import (
@@ -10,14 +8,15 @@ import (
 	"log"
 	"strings"
 	"time"
-
+	"sync"
 	"github.com/martbul/golang-blockchain/utils"
 )
 
 const (
-	MINING_DIFFICULTY = 3
+	MINING_DIFFICULTY = 3 //!mining dificulty IRL will be larger
 	MINING_SENDER     = "THE BLOCKCHAIN"
 	MINING_REWARD     = 1.0
+	MINING_TIMER_SEC = 20
 )
 
 type Block struct {
@@ -31,7 +30,8 @@ type Blockchain struct {
 	transactionPool   []*Transaction
 	chain             []*Block
 	blockchainAddress string // used to identify the minier
-	port uint16
+	port              uint16
+	mux sync.Mutex  
 }
 
 type Transaction struct {
@@ -40,12 +40,24 @@ type Transaction struct {
 	value                      float32
 }
 
+type TransactionRequest struct {
+	SenderBlockchainAddress    *string  `json:"sender_blockchain_address"`
+	RecipientBlockchainAddress *string  `json:"recipient_blockchain_address"`
+	SenderPublicKey            *string  `json:"sender_public_key"`
+	Value                      *float32 `json:"value"`
+	Signature                  *string  `json:"signature"`
+}
+
+type AmountResponse struct {
+	Amount float32 `json:"amount"`
+}
+
 // ! no idea how this works
 func (b *Block) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
 		Timestamp    int64          `json:"timestamp"`
 		Nonce        int            `json:"nonce"`
-		PreviousHash string       `json:"previous_hash"`
+		PreviousHash string         `json:"previous_hash"`
 		Transactions []*Transaction `json:"transactions"`
 	}{
 		Timestamp:    b.timestamp,
@@ -62,6 +74,10 @@ func NewBlockchain(blockchainAddress string, port uint16) *Blockchain {
 	bc.CreateBlock(0, b.Hash())
 	bc.port = port
 	return bc
+}
+
+func (bc *Blockchain) TransactionPool() []*Transaction {
+	return bc.transactionPool
 }
 
 func (bc *Blockchain) MarshalJSON() ([]byte, error) {
@@ -133,6 +149,15 @@ func NewBlock(nonce int, previousHash [32]byte, transactions []*Transaction) *Bl
 	b.transactions = transactions
 	return b
 }
+func (bc *Blockchain) CreateTransaction(sender string, recipient string, value float32, senderPublicKey *ecdsa.PublicKey, s *utils.Signature) bool {
+	isTransacted := bc.AddTransaction(sender, recipient, value, senderPublicKey, s )
+
+	//TODO -> SYNC 
+
+  	return isTransacted
+}
+
+
 
 func (bc *Blockchain) AddTransaction(sender string, recipient string, value float32, senderPublicKey *ecdsa.PublicKey, s *utils.Signature) bool {
 	t := NewTransaction(sender, recipient, value)
@@ -173,12 +198,25 @@ func (bc *Blockchain) CopyTransactionPool() []*Transaction {
 	return transactions
 }
 func (bc *Blockchain) Mining() bool {
+	// mining cann be called multyple time as once and you DON'T want that to happen
+	bc.mux.Lock() // when the method is called -> locking it
+	defer bc.mux.Unlock() // when the method finishes it will be unlocked
+
+	if len(bc.transactionPool) == 0 {
+		return false // when t he transaction pool is empty there is no need for mining (IRL mining time is min 10mn so the transaction pool always needs mining)
+	}
+
 	bc.AddTransaction(MINING_SENDER, bc.blockchainAddress, MINING_REWARD, nil, nil)
 	nonce := bc.ProofOfWork()
 	previousHash := bc.LastBlock().Hash()
 	bc.CreateBlock(nonce, previousHash)
 	log.Println("action=mining, status=success")
 	return true
+}
+
+func (bc *Blockchain) StartMining() {
+	bc.Mining()
+	_ = time.AfterFunc(time.Second * MINING_TIMER_SEC, bc.StartMining) //executing the StartMining in a loop every 20sec(MINING_TIMER_SEC)
 }
 
 func (bc *Blockchain) CalculateTotalAmount(blockchainAddress string) float32 {
@@ -224,4 +262,24 @@ func (b *Block) Print() {
 	for _, t := range b.transactions {
 		t.Print()
 	}
+}
+
+func (tr *TransactionRequest) Validate() bool {
+	if tr.SenderBlockchainAddress == nil ||
+		tr.RecipientBlockchainAddress == nil ||
+		tr.Value == nil ||
+		tr.Signature == nil {
+		return false
+	}
+	return true
+}
+
+
+
+func (ar *AmountResponse) MarshalJSON() ([]byte, error) {
+	return json.Marshal(struct {
+		Amount float32 `json:"amount"`
+	}{
+		Amount: ar.Amount,
+	})
 }
