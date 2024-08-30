@@ -31,6 +31,7 @@ func IsFoundHost(host string, port uint16) bool { //checking if a connection can
 
 var PATTERN = regexp.MustCompile(`((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?\.){3})(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)`)
 
+//! 100% works
 func FindNeighbors(myHost string, myPort uint16, startIp uint8, endIp uint8, startPort uint16, endPort uint16) []string{
 	address := fmt.Sprintf("%s:%d", myHost,myPort) //creating an address for yourself
 	// fmt.Println(address) //127.0.0.1:5000

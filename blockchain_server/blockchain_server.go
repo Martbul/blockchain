@@ -3,6 +3,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -52,6 +53,8 @@ func (bcs *BlockchainServer) GetChain(w http.ResponseWriter, req *http.Request) 
 	}
 }
 
+
+//! 100% works
 func (bcs *BlockchainServer) Transactions(w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodGet:
@@ -66,7 +69,10 @@ func (bcs *BlockchainServer) Transactions(w http.ResponseWriter, req *http.Reque
 			Length:       len(transactions),
 		})
 
-		io.WriteString(w, string(m))
+		io.WriteString(w, string(m[:]))
+
+
+
 
 	case http.MethodPost:
 		decoder := json.NewDecoder(req.Body)
@@ -74,38 +80,33 @@ func (bcs *BlockchainServer) Transactions(w http.ResponseWriter, req *http.Reque
 		err := decoder.Decode(&t)
 		if err != nil {
 			log.Printf("ERROR: %v", err)
-			// io.WriteString(w, string("fail")) //! PROBABLY WON'T WORK
-
+			io.WriteString(w, string(utils.JsinStatus("fail")))
 			return
 		}
+
 		if !t.Validate() {
 			log.Println("ERROR: missing field(s)")
-			io.WriteString(w, string("fail")) //! PROBABLY WON'T WORK
+			io.WriteString(w, string(utils.JsinStatus("fail")))
 			return
 		}
+
 		publicKey := utils.PublicKeyFromString(*t.SenderPublicKey)
 		signature := utils.SignatureFromString(*t.Signature)
 		bc := bcs.GetBlockchain()
 		isCreated := bc.CreateTransaction(*t.SenderBlockchainAddress, *t.RecipientBlockchainAddress, *t.Value, publicKey, signature)
+
 		w.Header().Add("Content-Type", "appliation/json")
 		var m []byte
 		if !isCreated {
 			w.WriteHeader(http.StatusBadRequest)
-			// m = "failed" //!PROBABLY WON'T WORK
-			response := map[string]string{"message": "failed"} //!PROBABLY WON'T WORK
-			m, _ = json.Marshal(response)                      //!PROBABLY WON'T WORK
-
+			m = utils.JsinStatus("fail")
 		} else {
 
 			w.WriteHeader(http.StatusCreated)
-			response := map[string]string{"message": "success"} //!PROBABLY WON'T WORK
-			m, _ = json.Marshal(response)                       //!PROBABLY WON'T WORK
+			m = utils.JsinStatus("success")
 		}
 
 		io.WriteString(w, string(m))
-
-
-
 
 
 
@@ -118,17 +119,13 @@ func (bcs *BlockchainServer) Transactions(w http.ResponseWriter, req *http.Reque
 		err := decoder.Decode(&t)
 		if err != nil {
 			log.Printf("ERROR: %v", err)
-			response := map[string]string{"message": "failed"} //!PROBABLY WON'T WORK
-			m, _ := json.Marshal(response)
-			io.WriteString(w, string(m))
-
-			// io.WriteString(w, string("fail")) //! PROBABLY WON'T WORK
+			io.WriteString(w, string(utils.JsinStatus("fail")))
 
 			return
 		}
 		if !t.Validate() {
 			log.Println("ERROR: missing field(s)")
-			io.WriteString(w, string("fail")) //! PROBABLY WON'T WORK
+			io.WriteString(w, string(utils.JsinStatus("fail")))
 			return
 		}
 		publicKey := utils.PublicKeyFromString(*t.SenderPublicKey)
@@ -139,31 +136,21 @@ func (bcs *BlockchainServer) Transactions(w http.ResponseWriter, req *http.Reque
 		var m []byte
 		if !isUpdated {
 			w.WriteHeader(http.StatusBadRequest)
-			response := map[string]string{"message": "failed"} //!PROBABLY WON'T WORK
-			m, _ = json.Marshal(response)                      //!PROBABLY WON'T WORK
+			m = utils.JsinStatus("fail")
 
 		} else {
 
 			w.WriteHeader(http.StatusCreated)
-			response := map[string]string{"message": "success"} //!PROBABLY WON'T WORK
-			m, _ = json.Marshal(response)                       //!PROBABLY WON'T WORK
+			m = utils.JsinStatus("success")
+
 		}
 
 		io.WriteString(w, string(m))
 
-
-
-
-
-
-
-
 	case http.MethodDelete:
 		bc := bcs.GetBlockchain()
 		bc.ClearTransactionPool()
-		response := map[string]string{"message": "success"} //!PROBABLY WON'T WORK
-		m, _ := json.Marshal(response)
-		io.WriteString(w, string(m))
+		io.WriteString(w, string(utils.JsinStatus("success")))
 
 	default:
 		log.Println("ERROR: Invalid HTTP Method")
@@ -171,6 +158,7 @@ func (bcs *BlockchainServer) Transactions(w http.ResponseWriter, req *http.Reque
 	}
 }
 
+// ! 100% works
 func (bcs *BlockchainServer) Mine(w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodGet:
@@ -179,12 +167,11 @@ func (bcs *BlockchainServer) Mine(w http.ResponseWriter, req *http.Request) {
 
 		var m []byte
 		if !isMined {
-			w.WriteHeader(http.StatusBadRequest)               //if user is not able to mine -> bad req
-			response := map[string]string{"message": "failed"} //!PROBABLY WON'T WORK
-			m, _ = json.Marshal(response)                      //!PROBABLY WON'T WORK
+			w.WriteHeader(http.StatusBadRequest) //if user is not able to mine -> bad req
+			m = utils.JsinStatus("fail")
 		} else {
-			response := map[string]string{"message": "success"} //!PROBABLY WON'T WORK
-			m, _ = json.Marshal(response)                       //!PROBABLY WON'T WORK
+			m = utils.JsinStatus("success")
+
 		}
 		w.Header().Add("Content-Type", "application/json")
 		io.WriteString(w, string(m))
@@ -212,6 +199,7 @@ func (bcs *BlockchainServer) StartMine(w http.ResponseWriter, req *http.Request)
 	}
 }
 
+// ! 100% works
 func (bcs *BlockchainServer) Amount(w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodGet:
@@ -230,13 +218,37 @@ func (bcs *BlockchainServer) Amount(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
+// ! 100% works
+func (bcs *BlockchainServer) Consensus(w http.ResponseWriter, req *http.Request) {
+	switch req.Method {
+	case http.MethodPut:
+		bc := bcs.GetBlockchain()
+
+		replaced := bc.ResolveConflicts()
+		fmt.Println("HHHHHHHHHHHHHHHH", replaced) //! the problem is because replased is false
+
+		w.Header().Add("Content-Type", "application/json")
+		if replaced {
+			io.WriteString(w, string(utils.JsinStatus("success")))
+		} else {
+			io.WriteString(w, string(utils.JsinStatus("fail")))
+
+		}
+	default:
+		log.Println("ERROR: Invalid HTTP Method")
+		w.WriteHeader(http.StatusBadRequest)
+	}
+}
+
+// ! 100% works
 func (bcs *BlockchainServer) Run() {
 	bcs.GetBlockchain().Run()
-	http.HandleFunc("/", bcs.GetChain)
+	http.HandleFunc("/chain", bcs.GetChain)
 	http.HandleFunc("/transactions", bcs.Transactions)
 	http.HandleFunc("/mine", bcs.Mine)
 	http.HandleFunc("/mine/start", bcs.StartMine)
 	http.HandleFunc("/amount", bcs.Amount)
+	http.HandleFunc("/consensus", bcs.Consensus)
 
 	log.Fatal(http.ListenAndServe("0.0.0.0:"+strconv.Itoa(int(bcs.Port())), nil))
 }

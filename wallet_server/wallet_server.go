@@ -68,8 +68,7 @@ func (ws *WalletServer) CreateTransaction(w http.ResponseWriter, req *http.Reque
 		err := decoder.Decode(&t)
 		if err != nil {
 			log.Printf("ERROR: %v", err)
-			// io.WriteString(w, string(utils.JsonStatus("fail")))
-			io.WriteString(w, string(http.StatusNotExtended)) //! PROBABLY WON'T WORK
+			io.WriteString(w, string(utils.JsinStatus("success")))
 			return
 		}
 
@@ -88,7 +87,7 @@ func (ws *WalletServer) CreateTransaction(w http.ResponseWriter, req *http.Reque
 		value, err := strconv.ParseFloat(*t.Value, 32) // converting string into a float
 		if err != nil {
 			log.Println("ERROR: parse error")
-			io.WriteString(w, "ERROR: parse error") //! PROBABLY WON'T WORK
+			io.WriteString(w, string(utils.JsinStatus("fail")))
 			return
 		}
 		value32 := float32(value)
@@ -114,10 +113,10 @@ func (ws *WalletServer) CreateTransaction(w http.ResponseWriter, req *http.Reque
 
 		resp, _ := http.Post(ws.Gateway()+"/transactions", "application/json", buf)
 		if resp.StatusCode == 201 {
-			io.WriteString(w, string("success")) //! PROBABLY WON'T WORK
+			io.WriteString(w, string(utils.JsinStatus("success")))
 			return
 		}
-		io.WriteString(w, string("fail")) //!PROBABLY WON'T WORK
+		io.WriteString(w, string(utils.JsinStatus("fail")))
 
 	default:
 		w.WriteHeader(http.StatusBadRequest)
@@ -142,9 +141,8 @@ func (ws *WalletServer) WalletAmount(w http.ResponseWriter, req *http.Request) {
 		if err != nil {
 			log.Printf("ERROR: %v", err)
 
-			response := map[string]string{"message": "success"} //!PROBABLY WON'T WORK
-			m, _ := json.Marshal(response)                      //!PROBABLY WON'T WORK
-			io.WriteString(w, string(m))
+			io.WriteString(w, string(utils.JsinStatus("success")))
+
 			return
 		}
 		w.Header().Add("Content-Type", "application/json")
@@ -155,27 +153,25 @@ func (ws *WalletServer) WalletAmount(w http.ResponseWriter, req *http.Request) {
 			if err != nil {
 				log.Printf("ERROR: %v", err)
 
-				response := map[string]string{"message": "success"} //!PROBABLY WON'T WORK
-				m, _ := json.Marshal(response)                      //!PROBABLY WON'T WORK
-				io.WriteString(w, string(m))
+				io.WriteString(w, string(utils.JsinStatus("success")))
+
 				return
 			}
-			m,_ := json.Marshal(struct{
-				Message string `json:"message"`
-				Amount float32 `json:"amount"`
+			m, _ := json.Marshal(struct {
+				Message string  `json:"message"`
+				Amount  float32 `json:"amount"`
 			}{
 				Message: "success",
-				Amount: bar.Amount,
+				Amount:  bar.Amount,
 			})
 
 			io.WriteString(w, string(m[:]))
-		}else{
-			response := map[string]string{"message": "fail"} //!PROBABLY WON'T WORK
-				m, _ := json.Marshal(response)                      //!PROBABLY WON'T WORK
-				io.WriteString(w, string(m))
+		} else {
+			io.WriteString(w, string(utils.JsinStatus("fail")))
+
 		}
 	default:
-			w.WriteHeader(http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
 		log.Println("ERROR: Invalid HTTP Method")
 
 	}
