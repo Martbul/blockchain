@@ -1,14 +1,17 @@
 package block
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"strings"
-	"time"
 	"sync"
+	"time"
+
 	"github.com/martbul/golang-blockchain/utils"
 )
 
@@ -16,7 +19,13 @@ const (
 	MINING_DIFFICULTY = 3 //!mining dificulty IRL will be larger
 	MINING_SENDER     = "THE BLOCKCHAIN"
 	MINING_REWARD     = 1.0
-	MINING_TIMER_SEC = 20
+	MINING_TIMER_SEC  = 20
+
+	BLOCKCHAIN_PORT_RANGE_START       = 5000
+	BLOCKCHAIN_PORT_RANGE_END         = 5003
+	NEIGHBOR_IP_RANGE_START           = 0
+	NEIGHBOR_IP_RANGE_END             = 1
+	BLOCKCHAIN_NEIGHBOR_SYNC_TIME_SEC = 20
 )
 
 type Block struct {
@@ -31,7 +40,9 @@ type Blockchain struct {
 	chain             []*Block
 	blockchainAddress string // used to identify the minier
 	port              uint16
-	mux sync.Mutex  
+	mux               sync.Mutex
+	neighbors         []string
+	muxNeighbors      sync.Mutex
 }
 
 type Transaction struct {
@@ -78,6 +89,10 @@ func NewBlockchain(blockchainAddress string, port uint16) *Blockchain {
 
 func (bc *Blockchain) TransactionPool() []*Transaction {
 	return bc.transactionPool
+}
+
+func (bc *Blockchain) ClearTransactionPool() {
+	bc.transactionPool = bc.transactionPool[:0]
 }
 
 func (bc *Blockchain) MarshalJSON() ([]byte, error) {
@@ -129,6 +144,13 @@ func (bc *Blockchain) CreateBlock(nonce int, previousHash [32]byte) *Block {
 	b := NewBlock(nonce, previousHash, bc.transactionPool)
 	bc.chain = append(bc.chain, b)
 	bc.transactionPool = []*Transaction{}
+	for _,n := range bc.neighbors {	// this syncs the transaction pool's between all nodes, when a block is created and transaction pool is emptyed it will empty all transaction pools(I belive)
+			endpoint := fmt.Sprintf("http://%s/transactions",n)
+			client := &http.Client{}
+			req,_ := http.NewRequest("DELETE", endpoint, nil)
+			resp,_ := client.Do(req)
+			log.Printf("%v",resp)
+	}
 	return b
 }
 
@@ -150,20 +172,30 @@ func NewBlock(nonce int, previousHash [32]byte, transactions []*Transaction) *Bl
 	return b
 }
 func (bc *Blockchain) CreateTransaction(sender string, recipient string, value float32, senderPublicKey *ecdsa.PublicKey, s *utils.Signature) bool {
-	isTransacted := bc.AddTransaction(sender, recipient, value, senderPublicKey, s )
+	isTransacted := bc.AddTransaction(sender, recipient, value, senderPublicKey, s)
 
-	//TODO -> SYNC 
+	if isTransacted {
+		for _, n := range bc.neighbors{
+			publicKeyStr := fmt.Sprintf("%064x%064x", senderPublicKey.X.Bytes(), senderPublicKey.Y.Bytes())
+			signatureStr := s.String()
+			bt := &TransactionRequest{&sender, &recipient, &publicKeyStr, &value, &signatureStr}
+			m ,_ := json.Marshal(bt)
+			buf := bytes.NewBuffer(m)
+			endpoint := fmt.Sprintf("http://%s/transactions",n)
+			client := &http.Client{}
+			req,_ := http.NewRequest("PUT", endpoint, buf)
+			resp,_ := client.Do(req)
+			log.Printf("%v",resp)
+		}
+	}
 
-  	return isTransacted
+	return isTransacted
 }
-
-
 
 func (bc *Blockchain) AddTransaction(sender string, recipient string, value float32, senderPublicKey *ecdsa.PublicKey, s *utils.Signature) bool {
 	t := NewTransaction(sender, recipient, value)
 
-	//! in case of transaction from the blockchain to a miner a varification is not needed
-	if sender == MINING_SENDER {
+	if sender == MINING_SENDER { // in case of transaction from the blockchain to a miner a varification is not needed
 		bc.transactionPool = append(bc.transactionPool, t)
 		return true
 	}
@@ -199,7 +231,7 @@ func (bc *Blockchain) CopyTransactionPool() []*Transaction {
 }
 func (bc *Blockchain) Mining() bool {
 	// mining cann be called multyple time as once and you DON'T want that to happen
-	bc.mux.Lock() // when the method is called -> locking it
+	bc.mux.Lock()         // when the method is called -> locking it
 	defer bc.mux.Unlock() // when the method finishes it will be unlocked
 
 	if len(bc.transactionPool) == 0 {
@@ -216,7 +248,7 @@ func (bc *Blockchain) Mining() bool {
 
 func (bc *Blockchain) StartMining() {
 	bc.Mining()
-	_ = time.AfterFunc(time.Second * MINING_TIMER_SEC, bc.StartMining) //executing the StartMining in a loop every 20sec(MINING_TIMER_SEC)
+	_ = time.AfterFunc(time.Second*MINING_TIMER_SEC, bc.StartMining) //executing the StartMining in a loop every 20sec(MINING_TIMER_SEC)
 }
 
 func (bc *Blockchain) CalculateTotalAmount(blockchainAddress string) float32 {
@@ -236,8 +268,7 @@ func (bc *Blockchain) CalculateTotalAmount(blockchainAddress string) float32 {
 	return totalAmount
 }
 
-// check if a given nonce results in a valid hash
-func (bc *Blockchain) ValidProof(nonce int, previousHash [32]byte, transactions []*Transaction, dificulty int) bool {
+func (bc *Blockchain) ValidProof(nonce int, previousHash [32]byte, transactions []*Transaction, dificulty int) bool { // check if a given nonce results in a valid hash
 	zeros := strings.Repeat("0", dificulty)
 	guessBlock := Block{0, nonce, previousHash, transactions}
 	guessHashStr := fmt.Sprintf("%x", guessBlock.Hash())
@@ -274,12 +305,33 @@ func (tr *TransactionRequest) Validate() bool {
 	return true
 }
 
-
-
 func (ar *AmountResponse) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
 		Amount float32 `json:"amount"`
 	}{
 		Amount: ar.Amount,
 	})
+}
+
+func (bc *Blockchain) Run() { //this will be called from your web API (blockchain_server.go)
+	bc.StartSyncNeighbors()
+}
+
+func (bc *Blockchain) SetNeighbors() {
+	bc.neighbors = utils.FindNeighbors(
+		utils.GetHost(), bc.port,
+		NEIGHBOR_IP_RANGE_START, NEIGHBOR_IP_RANGE_END,
+		BLOCKCHAIN_PORT_RANGE_START, BLOCKCHAIN_PORT_RANGE_END)
+	log.Printf("%v", bc.neighbors)
+}
+
+func (bc *Blockchain) SyncNeighbors() {
+	bc.muxNeighbors.Lock()
+	defer bc.muxNeighbors.Unlock()
+	bc.SetNeighbors()
+}
+
+func (bc *Blockchain) StartSyncNeighbors() {
+	bc.SyncNeighbors()
+	_ = time.AfterFunc(time.Second*BLOCKCHAIN_NEIGHBOR_SYNC_TIME_SEC, bc.StartSyncNeighbors)
 }
