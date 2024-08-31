@@ -19,6 +19,7 @@ type Wallet struct {
 	blockchainAddress string
 }
 
+
 type Transaction struct {
 	senderPrivateKey           *ecdsa.PrivateKey
 	senderPublicKey            *ecdsa.PublicKey
@@ -58,7 +59,6 @@ func NewWallet() *Wallet {
 	digest3 := h3.Sum(nil)
 
 	// 4. Add version byte in front of RIPEMD-160 hash (0x00 from Main Network)
-	//! n blockchain the are 2 networks - main and test network
 	vd4 := make([]byte, 21)
 	vd4[0] = 0x00
 	copy(vd4[1:], digest3[:])
@@ -87,13 +87,16 @@ func NewWallet() *Wallet {
 	return w
 }
 
+
 func (w *Wallet) PrivateKey() *ecdsa.PrivateKey {
 	return w.privateKey
 }
 
+
 func (w *Wallet) PrivateKeyStr() string {
 	return fmt.Sprintf("%x", w.privateKey.D.Bytes())
 }
+
 
 func (w *Wallet) PubliceKey() *ecdsa.PublicKey {
 	return w.publicKey
@@ -103,9 +106,11 @@ func (w *Wallet) PublicKeyStr() string {
 	return fmt.Sprintf("%064x%064x", w.publicKey.X.Bytes(), w.publicKey.Y.Bytes())
 }
 
+
 func (w *Wallet) BlockchainAddress() string {
 	return w.blockchainAddress
 }
+
 
 func (w *Wallet) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
@@ -119,9 +124,11 @@ func (w *Wallet) MarshalJSON() ([]byte, error) {
 	})
 }
 
+
 func NewTransaction(privateKey *ecdsa.PrivateKey, publicKey *ecdsa.PublicKey, sender string, recipient string, value float32) *Transaction {
 	return &Transaction{privateKey, publicKey, sender, recipient, value}
 }
+
 
 func (t *Transaction) GenerateSignature() *utils.Signature {
 	m, _ := json.Marshal(t)
@@ -129,6 +136,7 @@ func (t *Transaction) GenerateSignature() *utils.Signature {
 	r, s, _ := ecdsa.Sign(rand.Reader, t.senderPrivateKey, h[:])
 	return &utils.Signature{r, s}
 }
+
 
 func (t *Transaction) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
@@ -141,6 +149,7 @@ func (t *Transaction) MarshalJSON() ([]byte, error) {
 		Value:     t.value,
 	})
 }
+
 
 
 func (tr *TransactionRequest) Validate() bool{

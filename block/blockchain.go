@@ -64,7 +64,7 @@ type AmountResponse struct {
 	Amount float32 `json:"amount"`
 }
 
-// ! 100% works
+
 func (b *Block) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
 		Timestamp    int64          `json:"timestamp"`
@@ -79,7 +79,7 @@ func (b *Block) MarshalJSON() ([]byte, error) {
 	})
 }
 
-// ! 100% works
+
 func (b *Block) UnmarshalJSON(data []byte) error {
 	var previousHash string
 	v := &struct {
@@ -103,7 +103,7 @@ func (b *Block) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// ! 100% works
+
 func NewBlockchain(blockchainAddress string, port uint16) *Blockchain {
 	b := &Block{}
 	bc := new(Blockchain)
@@ -113,17 +113,17 @@ func NewBlockchain(blockchainAddress string, port uint16) *Blockchain {
 	return bc
 }
 
-// ! 100% works
+
 func (bc *Blockchain) TransactionPool() []*Transaction {
 	return bc.transactionPool
 }
 
-// ! 100% works
+
 func (bc *Blockchain) ClearTransactionPool() {
 	bc.transactionPool = bc.transactionPool[:0]
 }
 
-// ! 100% works
+
 func (bc *Blockchain) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
 		Blocks []*Block `json:"chain"`
@@ -132,7 +132,7 @@ func (bc *Blockchain) MarshalJSON() ([]byte, error) {
 	})
 }
 
-// ! 100% works
+
 func (bc *Blockchain) UnmarshalJSON(data []byte) error {
 	v := &struct {
 		Blocks *[]*Block `json:"chain"`
@@ -175,7 +175,7 @@ func (t *Transaction) MarshalJSON() ([]byte, error) {
 	})
 }
 
-//! 100% works
+
 func (t *Transaction) UnmarshalJSON(data []byte) error {
 	v := &struct {
 		Sender    *string  `json:"sender_blockchain_address"`
@@ -192,22 +192,23 @@ func (t *Transaction) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// ! 100% works
+
 func (bc *Blockchain) LastBlock() *Block {
 	return bc.chain[len(bc.chain)-1]
 }
 
-// ! 100% works
+
 func (b *Block) Hash() [32]byte {
 	m, _ := json.Marshal(b)         // formating a block to json
 	return sha256.Sum256([]byte(m)) //hashing the json
 }
 
-// ! 100% works
+
 func (bc *Blockchain) CreateBlock(nonce int, previousHash [32]byte) *Block {
 	b := NewBlock(nonce, previousHash, bc.transactionPool)
 	bc.chain = append(bc.chain, b)
 	bc.transactionPool = []*Transaction{}
+
 	for _, n := range bc.neighbors { // this syncs the transaction pool's between all nodes, when a block is created and transaction pool is emptyed it will empty all transaction pools(I belive)
 		endpoint := fmt.Sprintf("http://%s/transactions", n)
 		client := &http.Client{}
@@ -227,7 +228,7 @@ func (bc *Blockchain) Print() {
 	fmt.Printf("%s\n", strings.Repeat("*", 25))
 }
 
-// ! 100% works
+
 func NewBlock(nonce int, previousHash [32]byte, transactions []*Transaction) *Block {
 	b := new(Block)
 	b.timestamp = time.Now().UnixNano()
@@ -237,7 +238,7 @@ func NewBlock(nonce int, previousHash [32]byte, transactions []*Transaction) *Bl
 	return b
 }
 
-// ! 100% works
+
 func (bc *Blockchain) CreateTransaction(sender string, recipient string, value float32, senderPublicKey *ecdsa.PublicKey, s *utils.Signature) bool {
 	isTransacted := bc.AddTransaction(sender, recipient, value, senderPublicKey, s)
 
@@ -268,10 +269,10 @@ func (bc *Blockchain) AddTransaction(sender string, recipient string, value floa
 	}
 
 	if bc.VerifyTransactionSignature(senderPublicKey, s, t) {
-		// if bc.CalculateTotalAmount(sender) < value {
-		// 	log.Println("ERROR: not enougn balance in a wallet")
-		// 	return false
-		// }
+		if bc.CalculateTotalAmount(sender) < value {
+			log.Println("ERROR: not enougn balance in a wallet")
+			return false
+		}
 		bc.transactionPool = append(bc.transactionPool, t)
 		return true
 	} else {
@@ -280,15 +281,18 @@ func (bc *Blockchain) AddTransaction(sender string, recipient string, value floa
 	return false
 }
 
+
 func (bc *Blockchain) VerifyTransactionSignature(senderPublicKey *ecdsa.PublicKey, s *utils.Signature, t *Transaction) bool {
 	m, _ := json.Marshal(t)
 	h := sha256.Sum256([]byte(m))
 	return ecdsa.Verify(senderPublicKey, h[:], s.R, s.S)
 }
 
+
+
 func (bc *Blockchain) CopyTransactionPool() []*Transaction {
 	transactions := make([]*Transaction, 0)
-	for _, t := range transactions {
+	for _, t := range bc.transactionPool {
 		transactions = append(transactions,
 			NewTransaction(t.senderBlockchainAddress, t.recipientBlockchainAddress, t.value),
 		)
@@ -297,15 +301,15 @@ func (bc *Blockchain) CopyTransactionPool() []*Transaction {
 	return transactions
 }
 
-// ! 100% works
+
 func (bc *Blockchain) Mining() bool {
 	// mining cann be called multyple time as once and you DON'T want that to happen
 	bc.mux.Lock()         // when the method is called -> locking it
 	defer bc.mux.Unlock() // when the method finishes it will be unlocked
 
-	if len(bc.transactionPool) == 0 {
-		return false // when the transaction pool is empty there is no need for mining (IRL mining time is min 10mn so the transaction pool always needs mining)
-	}
+	// if len(bc.transactionPool) == 0 {
+	// 	return false // when the transaction pool is empty there is no need for mining (IRL mining time is min 10mn so the transaction pool always needs mining and mining can be perfomed even if there are no transactions)
+	// }
 
 	bc.AddTransaction(MINING_SENDER, bc.blockchainAddress, MINING_REWARD, nil, nil)
 	nonce := bc.ProofOfWork()
@@ -325,13 +329,13 @@ func (bc *Blockchain) Mining() bool {
 	return true
 }
 
-// ! 100% works
+
 func (bc *Blockchain) StartMining() {
 	bc.Mining()
 	_ = time.AfterFunc(time.Second * MINING_TIMER_SEC, bc.StartMining) //executing the StartMining in a loop every 20sec(MINING_TIMER_SEC)
 }
 
-// ! 100% works
+
 func (bc *Blockchain) CalculateTotalAmount(blockchainAddress string) float32 {
 	var totalAmount float32 = 0.0
 	for _, b := range bc.chain {
@@ -349,15 +353,23 @@ func (bc *Blockchain) CalculateTotalAmount(blockchainAddress string) float32 {
 	return totalAmount
 }
 
-// ! 100% works
+
 func (bc *Blockchain) ValidChain(chain []*Block) bool { // checks if the entire blovkvhain is valid, iterates through each block and enshures that:1 Hash continuity(each block's previousHash must match the hash of the next block in the chain) and 2 Valid Proof(each block must meet the required difficulty level 000)
 	preBlock := chain[0] //the first block in the blockchain
 	currentIndex := 1
-	for currentIndex < len(chain) {
+	// for currentIndex < len(chain) -1 { //! MAYBE I FIXED THE PROBLEM WITH CHAIN SYNC
+	for currentIndex < len(chain)  { 
 		b := chain[currentIndex]
 		if b.previousHash != preBlock.Hash() {
 			return false
 		}
+
+
+		fmt.Println("===================================")
+		fmt.Println(b.Nonce())
+		fmt.Println(b.PreviousHash())
+		fmt.Println( b.Transactions())
+		fmt.Println(MINING_DIFFICULTY)
 
 		if !bc.ValidProof(b.Nonce(), b.PreviousHash(), b.Transactions(), MINING_DIFFICULTY) { //! here is returning false
 			fmt.Println("FALLLLLSSEEEEEE")
@@ -370,12 +382,12 @@ func (bc *Blockchain) ValidChain(chain []*Block) bool { // checks if the entire 
 	return true
 }
 
-//! 100% works
+
 func (bc *Blockchain) Chain() []*Block {
 	return bc.chain
 }
 
-//! 100% works
+
 func (bc *Blockchain) ResolveConflicts() bool {
 	var longestChain []*Block = nil
 	maxLength := len(bc.chain)
@@ -415,7 +427,7 @@ func (bc *Blockchain) ResolveConflicts() bool {
 	return false
 }
 
-// ! 100% works
+
 func (bc *Blockchain) ValidProof(nonce int, previousHash [32]byte, transactions []*Transaction, difficulty int) bool { // check if a given nonce results in a valid hash
 	zeros := strings.Repeat("0", difficulty) // the block must start with difficulty number of 0's
 	guessBlock := Block{0, nonce, previousHash, transactions} //  creating a guessBlock, using the given nonce, previousHash, and transactions
@@ -424,7 +436,7 @@ func (bc *Blockchain) ValidProof(nonce int, previousHash [32]byte, transactions 
 	return guessHashStr[:difficulty] == zeros
 }
 
-// ! 100% works
+
 func (bc *Blockchain) ProofOfWork() int {
 	transactions := bc.CopyTransactionPool()
 	previousHash := bc.LastBlock().Hash()
@@ -463,13 +475,14 @@ func (ar *AmountResponse) MarshalJSON() ([]byte, error) {
 	})
 }
 
-// ! 100% works
+
 func (bc *Blockchain) Run() { //this will be called from your web API (blockchain_server.go)
 	bc.StartSyncNeighbors()
 	bc.ResolveConflicts()
+	bc.StartMining()
 }
 
-// ! 100% works
+
 func (bc *Blockchain) SetNeighbors() {
 	bc.neighbors = utils.FindNeighbors(
 		utils.GetHost(), bc.port,
@@ -478,30 +491,30 @@ func (bc *Blockchain) SetNeighbors() {
 	log.Printf("%v", bc.neighbors)
 }
 
-// !100% works
+
 func (bc *Blockchain) SyncNeighbors() {
 	bc.muxNeighbors.Lock()
 	defer bc.muxNeighbors.Unlock()
 	bc.SetNeighbors()
 }
 
-// ! 100% works
+
 func (bc *Blockchain) StartSyncNeighbors() {
 	bc.SyncNeighbors()
 	_ = time.AfterFunc(time.Second*BLOCKCHAIN_NEIGHBOR_SYNC_TIME_SEC, bc.StartSyncNeighbors)
 }
 
-// ! 100% works
+
 func (b *Block) PreviousHash() [32]byte {
 	return b.previousHash
 }
 
-// ! 100% works
+
 func (b *Block) Nonce() int {
 	return b.nonce
 }
 
-// ! 100% works
+
 func (b *Block) Transactions() []*Transaction {
 	return b.transactions
 }

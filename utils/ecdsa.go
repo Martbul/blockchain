@@ -8,6 +8,7 @@ import (
 	"math/big"
 )
 
+
 type Signature struct {
 	R *big.Int // public key X coordinate
 	S *big.Int // public key Y coordinate

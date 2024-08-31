@@ -68,19 +68,21 @@ func (ws *WalletServer) CreateTransaction(w http.ResponseWriter, req *http.Reque
 		err := decoder.Decode(&t)
 		if err != nil {
 			log.Printf("ERROR: %v", err)
-			io.WriteString(w, string(utils.JsinStatus("success")))
+			io.WriteString(w, string(utils.JsinStatus("fail")))
 			return
 		}
 
 		if !t.Validate() {
 			log.Println("ERROR: Missing field(s)")
+			io.WriteString(w, string(utils.JsinStatus("fail")))
+			return
 		}
 
-		fmt.Println(*t.SenderPublicKey)
-		fmt.Println(*t.SenderBlockchainAddress)
-		fmt.Println(*t.SenderPrivateKey)
-		fmt.Println(*t.RecipientBlockchainAddress)
-		fmt.Println(*t.Value)
+		// fmt.Println(*t.SenderPublicKey)
+		// fmt.Println(*t.SenderBlockchainAddress)
+		// fmt.Println(*t.SenderPrivateKey)
+		// fmt.Println(*t.RecipientBlockchainAddress)
+		// fmt.Println(*t.Value)
 
 		publicKey := utils.PublicKeyFromString(*t.SenderPublicKey)
 		privateKey := utils.PrivateKeyFromString(*t.SenderPrivateKey, publicKey)

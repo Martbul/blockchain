@@ -54,7 +54,7 @@ func (bcs *BlockchainServer) GetChain(w http.ResponseWriter, req *http.Request) 
 }
 
 
-//! 100% works
+
 func (bcs *BlockchainServer) Transactions(w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodGet:
@@ -199,7 +199,7 @@ func (bcs *BlockchainServer) StartMine(w http.ResponseWriter, req *http.Request)
 	}
 }
 
-// ! 100% works
+
 func (bcs *BlockchainServer) Amount(w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodGet:
@@ -218,7 +218,7 @@ func (bcs *BlockchainServer) Amount(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-// ! 100% works
+
 func (bcs *BlockchainServer) Consensus(w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodPut:
@@ -240,7 +240,7 @@ func (bcs *BlockchainServer) Consensus(w http.ResponseWriter, req *http.Request)
 	}
 }
 
-// ! 100% works
+
 func (bcs *BlockchainServer) Run() {
 	bcs.GetBlockchain().Run()
 	http.HandleFunc("/chain", bcs.GetChain)
