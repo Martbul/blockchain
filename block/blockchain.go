@@ -17,11 +17,10 @@ import (
 )
 
 const (
-	MINING_DIFFICULTY = 3 //!mining dificulty IRL will be larger
+	MINING_DIFFICULTY = 3 //mining dificulty IRL will be larger
 	MINING_SENDER     = "THE BLOCKCHAIN"
 	MINING_REWARD     = 1.0
 	MINING_TIMER_SEC  = 20
-
 	BLOCKCHAIN_PORT_RANGE_START       = 5000
 	BLOCKCHAIN_PORT_RANGE_END         = 5003
 	NEIGHBOR_IP_RANGE_START           = 0
@@ -164,7 +163,7 @@ func (t *Transaction) Print() {
 
 func (t *Transaction) MarshalJSON() ([]byte, error) {
 	return json.Marshal(struct {
-		//! important , is that the filed must start with cappital letters to make it a public property
+		// important , is that the filed must start with cappital letters to make it a public property
 		Sender    string  `json:"sender_blockchain_address"`
 		Recipient string  `json:"recipient_blockchain_address"`
 		Value     float32 `json:"value"`
@@ -357,22 +356,14 @@ func (bc *Blockchain) CalculateTotalAmount(blockchainAddress string) float32 {
 func (bc *Blockchain) ValidChain(chain []*Block) bool { // checks if the entire blovkvhain is valid, iterates through each block and enshures that:1 Hash continuity(each block's previousHash must match the hash of the next block in the chain) and 2 Valid Proof(each block must meet the required difficulty level 000)
 	preBlock := chain[0] //the first block in the blockchain
 	currentIndex := 1
-	// for currentIndex < len(chain) -1 { //! MAYBE I FIXED THE PROBLEM WITH CHAIN SYNC
 	for currentIndex < len(chain)  { 
 		b := chain[currentIndex]
+
 		if b.previousHash != preBlock.Hash() {
 			return false
 		}
 
-
-		fmt.Println("===================================")
-		fmt.Println(b.Nonce())
-		fmt.Println(b.PreviousHash())
-		fmt.Println( b.Transactions())
-		fmt.Println(MINING_DIFFICULTY)
-
-		if !bc.ValidProof(b.Nonce(), b.PreviousHash(), b.Transactions(), MINING_DIFFICULTY) { //! here is returning false
-			fmt.Println("FALLLLLSSEEEEEE")
+		if !bc.ValidProof(b.Nonce(), b.PreviousHash(), b.Transactions(), MINING_DIFFICULTY) {
 			return false
 		}
 
@@ -398,18 +389,10 @@ func (bc *Blockchain) ResolveConflicts() bool {
 		if resp.StatusCode == 200 {
 			var bcResp Blockchain
 			decoder := json.NewDecoder(resp.Body)
-
 			_ = decoder.Decode(&bcResp)
 
 			chain := bcResp.Chain()
-			for _ ,v := range chain{
-				//ha owete sa im werni, problema e s valid proof
-									fmt.Println("DDDDDDDDDDDDDDDDDDDDDDD", *v)
-
-			}
-
-			fmt.Println("q1q1q1q1q1q1q1q1q1q1q1q1q1q1q", bc.ValidChain(chain)) //! chain is not valid. Options: not getting the chain right; wrong code for ValidChain; the chain is build wrong
-
+		
 			if len(chain) > maxLength && bc.ValidChain(chain) {
 
 				maxLength = len(chain)

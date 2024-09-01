@@ -7,7 +7,6 @@
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
     <script>
       $(function () {
-        // Fetch wallet data when the page loads
         $.ajax({
           url: "/wallet",
           type: "POST",
@@ -22,9 +21,8 @@
           },
         });
 
-        // Handle the "Send" button click
+
         $("#send_money_button").click(function () {
-          // Define the transaction data object
           var transaction_data = {
             sender_private_key: $("#private_key").val(),
             sender_blockchain_address: $("#blockchain_address").val(),
@@ -35,7 +33,6 @@
             value: $("#send_amount").val(),
           };
 
-          // Send the transaction data to the server
           $.ajax({
             url: "/transaction",
             type: "POST",

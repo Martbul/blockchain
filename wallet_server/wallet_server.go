@@ -78,12 +78,6 @@ func (ws *WalletServer) CreateTransaction(w http.ResponseWriter, req *http.Reque
 			return
 		}
 
-		// fmt.Println(*t.SenderPublicKey)
-		// fmt.Println(*t.SenderBlockchainAddress)
-		// fmt.Println(*t.SenderPrivateKey)
-		// fmt.Println(*t.RecipientBlockchainAddress)
-		// fmt.Println(*t.Value)
-
 		publicKey := utils.PublicKeyFromString(*t.SenderPublicKey)
 		privateKey := utils.PrivateKeyFromString(*t.SenderPrivateKey, publicKey)
 		value, err := strconv.ParseFloat(*t.Value, 32) // converting string into a float

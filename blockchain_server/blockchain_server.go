@@ -1,9 +1,8 @@
-// ! IRL syncing between nodes is done by p2p network , but here I will use REST
+// ! IRL syncing between nodes is done by p2p network, but here I will use REST
 package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -57,6 +56,7 @@ func (bcs *BlockchainServer) GetChain(w http.ResponseWriter, req *http.Request) 
 
 func (bcs *BlockchainServer) Transactions(w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
+
 	case http.MethodGet:
 		w.Header().Add("Content-Type", "application/json")
 		bc := bcs.GetBlockchain()
@@ -111,8 +111,6 @@ func (bcs *BlockchainServer) Transactions(w http.ResponseWriter, req *http.Reque
 
 
 
-
-
 	case http.MethodPut:
 		decoder := json.NewDecoder(req.Body)
 		var t block.TransactionRequest
@@ -142,10 +140,11 @@ func (bcs *BlockchainServer) Transactions(w http.ResponseWriter, req *http.Reque
 
 			w.WriteHeader(http.StatusCreated)
 			m = utils.JsinStatus("success")
-
 		}
 
 		io.WriteString(w, string(m))
+
+
 
 	case http.MethodDelete:
 		bc := bcs.GetBlockchain()
@@ -158,12 +157,12 @@ func (bcs *BlockchainServer) Transactions(w http.ResponseWriter, req *http.Reque
 	}
 }
 
-// ! 100% works
+
 func (bcs *BlockchainServer) Mine(w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
 	case http.MethodGet:
 		bc := bcs.GetBlockchain()
-		isMined := bc.Mining() // chaing if the suer is able to mine
+		isMined := bc.Mining() // chaing if the user is able to mine
 
 		var m []byte
 		if !isMined {
@@ -186,12 +185,10 @@ func (bcs *BlockchainServer) StartMine(w http.ResponseWriter, req *http.Request)
 	switch req.Method {
 	case http.MethodGet:
 		bc := bcs.GetBlockchain()
-		bc.StartMining() // chaing if the suer is able to mine
+		bc.StartMining()
 
-		response := map[string]string{"message": "success"} //!PROBABLY WON'T WORK
-		m, _ := json.Marshal(response)                      //!PROBABLY WON'T WORK
 		w.Header().Add("Content-Type", "application/json")
-		io.WriteString(w, string(m))
+		io.WriteString(w, string(utils.JsinStatus("success")))
 
 	default:
 		log.Println("ERROR: Invalid HTTP Method")
@@ -225,7 +222,6 @@ func (bcs *BlockchainServer) Consensus(w http.ResponseWriter, req *http.Request)
 		bc := bcs.GetBlockchain()
 
 		replaced := bc.ResolveConflicts()
-		fmt.Println("HHHHHHHHHHHHHHHH", replaced) //! the problem is because replased is false
 
 		w.Header().Add("Content-Type", "application/json")
 		if replaced {
